@@ -1,1 +1,7 @@
-No Read me Yet !!
+Usage:
+
+$imdb = new Isy_IMDB();
+$mA = $imdb->getMovieInfo("Transformers 3", false);
+$mA2 = $imdb->getMovieInfo("tt0418279");
+$mIP = $imdb->getPersonInfo("nm0908094");
+$mCAST = $imdb->getFullCredits('tt1596343');
