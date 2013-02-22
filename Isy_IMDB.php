@@ -1,6 +1,9 @@
 <?php
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHP IMDB Scraper API by Islander 
-// Version: 1.0
+// Version: 2.4
+// UPDATED imdb regexp's 21st Feb 2013
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 require_once(__DIR__.DIRECTORY_SEPARATOR.'countryarray.php');
 
 class Isy_IMDB
@@ -20,7 +23,7 @@ class Isy_IMDB
 		
         $html = $this->getURL($imdbUrl);
 		
-        if(stripos($html, "<meta name=\"application-name\" content=\"IMDb\" />") !== false){
+        if(stripos($html, "<meta property='og:site_name' content='IMDb' />") !== false){
             $arr = $this->ScrapMovieInfo($html);
         } else {
             $arr['error'] = "No Title found on IMDb!";
@@ -64,7 +67,7 @@ class Isy_IMDB
 		
         $html = $this->getURL($imdbUrl);
 		
-        if(stripos($html, "<meta name=\"application-name\" content=\"IMDb\" />") !== false){
+        if(stripos($html, "<meta property='og:site_name' content='IMDb' />") !== false){
             $arr = $this->ScrapMovieMiniInfo($html);
         } else {
             $arr['error'] = "No Title found on IMDb!";
@@ -77,12 +80,19 @@ class Isy_IMDB
     {
         $arr = array();
         $arr['mid'] = $this->match('/<link rel="canonical" href="http:\/\/www.imdb.com\/title\/(tt[0-9]+)\/" \/>/ms', $html, 1);
-        $arr['title'] = trim($this->match('/<h1 class="header" itemprop="name">\n(.*?)\n(<span|<\/h1>)/ms', $html, 1));
+        //$arr['title'] = trim($this->match('/<h1 class="header" itemprop="name">\n(.*?)\n(<span|<\/h1>)/ms', $html, 1));
+        $arr['title'] = trim($this->match('/<span class="itemprop" itemprop="name">(.*?)<\/span>/ms', $html, 1));
         
         $arr['year'] = trim($this->match('/<title>.*?\(.*?(\d{4}).*?\).*?<\/title>/ms', $html, 1));
-        $arr['rating'] = $this->match('/ratingValue">(\d.\d)</ms', $html, 1);
 
-        $arr['mpaa'] = trim($this->match('/infobar">.<img.*?alt="(.*?)".*?>/ms', $html, 1));
+        $arr['rating'] = $this->match('/ratingValue">(\d.\d)<\/span>/ms', $html, 1);
+
+        if(trim($arr['rating']) == '' || trim($arr['rating']) == '0' || trim($arr['rating']) == '0.0')
+        	$arr['rating'] = $this->match('/star-box-giga-star">(.*?)<\/div>/ms', $html, 1);
+
+        $arr['rating'] = trim($arr['rating']);
+
+        $arr['mpaa'] = trim($this->match('/<span itemprop="contentRating">Rated (.*?) for/ms', $html, 1));
         
 		$rls_date = $this->match('/Release Date:<\/h4>.*?(\d{2}? (January|February|March|April|May|June|July|August|September|October|November|December) (19|20)\d{2}).*?(\(|<span)/ms', $html, 1);
 		$arr['releasedate'] = strtotime($rls_date);
@@ -90,13 +100,15 @@ class Isy_IMDB
         $arr['runtime'] = trim($this->match('/Runtime:<\/h4>.*?(\d+) min.*?<\/div>/ms', $html, 1));
         if($arr['runtime'] == '') $arr['runtime'] = trim($this->match('/infobar.*?(\d+) min.*?<\/div>/ms', $html, 1));
 
-        $arr['votes'] = str_replace(",", "", $this->match('/ratingCount">(\d+,?\d*)<\/span>/ms', $html, 1));
+        //$arr['votes'] = str_replace(",", "", $this->match('/ratingCount">(\d+,?\d*)<\/span>/ms', $html, 1));
+        $arr['votes'] = str_replace(",", "", $this->match('/href="ratings.*?> <span itemprop="ratingCount">(\d+,?\d*)<\/span> users\n<\/a>/ms', $html, 1));
         $arr['budget'] = str_replace(",", "", trim($this->match('/Budget:<\/h4>.*?(\d+,?\d+,\d*)(.*?)<\/div>/ms', $html, 1)));
 		$arr['gross'] = str_replace(",", "", trim($this->match('/Gross:<\/h4>.*?(\d+,?\d+,\d*)(.*?)<\/div>/ms', $html, 1)));
-		$arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+)<\/span> user<\/a>/ms', $html, 1)));
-		$arr['mcrating'] = str_replace(",", "", trim($this->match('/href="criticreviews">(\d+)\/100<\/a>/ms', $html, 1)));
-		$arr['mcreviewedusers'] = str_replace(",", "", trim($this->match('/>(\d+)<\/a> from <a/ms', $html, 1)));
-		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n<a href="(.*?)">.*?<\/a>/ms', $html, 1));
+		//$arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+,?\d*)<\/span> user<\/a>/ms', $html, 1)));
+        $arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+,?\d*) user<\/span>/ms', $html, 1)));
+		$arr['mcrating'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\/100/ms', $html, 1)));
+		$arr['mcreviewedusers'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\n<\/a>                from/ms', $html, 1)));
+		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n        <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
 
         return $arr;
 		
@@ -107,16 +119,24 @@ class Isy_IMDB
     {
         $arr = array();
         $arr['mid'] = $this->match('/<link rel="canonical" href="http:\/\/www.imdb.com\/title\/(tt\d+)\/" \/>/ms', $html, 1);
-        $arr['title'] = trim($this->match('/<h1 class="header" itemprop="name">\n(.*?)\n(<span|<\/h1>)/ms', $html, 1));
+        //$arr['title'] = trim($this->match('/<h1 class="header" itemprop="name">\n(.*?)\n(<span|<\/h1>)/ms', $html, 1));
+        $arr['title'] = trim($this->match('/<span class="itemprop" itemprop="name">(.*?)<\/span>/ms', $html, 1));
         
         $arr['year'] = trim($this->match('/<title>.*?\(.*?(\d{4}).*?\).*?<\/title>/ms', $html, 1));
-        $arr['rating'] = $this->match('/ratingValue">(\d.\d)/ms', $html, 1);
+        
+        $arr['rating'] = $this->match('/ratingValue">(\d.\d)<\/span>/ms', $html, 1);
+
+        if(trim($arr['rating']) == '' || trim($arr['rating']) == '0' || trim($arr['rating']) == '0.0')
+        	$arr['rating'] = $this->match('/star-box-giga-star">(.*?)<\/div>/ms', $html, 1);
+
+        $arr['rating'] = trim($arr['rating']);
        
 	    $arr['genres'] = array();
         foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/Genre.?:(.*?)(<\/div>|See more)/ms', $html, 1), 1) as $m)
             array_push($arr['genres'], trim($m));
 
-        $arr['mpaa'] = trim($this->match('/infobar">.<img.*?alt="(.*?)".*?>/ms', $html, 1));
+        // <span itemprop="contentRating">Rated PG-13 for intense sequences of violence and action, sexual content and language</span>
+        $arr['mpaa'] = trim($this->match('/<span itemprop="contentRating">Rated (.*?) for/ms', $html, 1));
         
 		$rls_date = $this->match('/Release Date:<\/h4>.*?(\d{2}? (January|February|March|April|May|June|July|August|September|October|November|December) (19|20)\d{2}).*?(\(|<span)/ms', $html, 1);
         
@@ -131,14 +151,24 @@ class Isy_IMDB
 			
         }
 		*/
+
+        // http://ia.media-imdb.com/images/M/MV5BMTUxNTk5MTE0OF5BMl5BanBnXkFtZTcwMjA2NzY3NA@@._V1._SX640_SY948_.jpg
+        // http://ia.media-imdb.com/images/M/MV5BMTUxNTk5MTE0OF5BMl5BanBnXkFtZTcwMjA2NzY3NA@@._V1.jpg
+        // http://ia.media-imdb.com/images/M/MV5BMTUxNTk5MTE0OF5BMl5BanBnXkFtZTcwMjA2NzY3NA@@._V1_SY317_CR0,0,214,317_.jpg
 		
-        $arr['poster'] = trim($this->match('/img_primary">.*?<img src="(.*?)".*?<\/td>/ms', $html, 1));
-        
-        if ($arr['poster'] != '' && strrpos($arr['poster'], "nopicture") === false && strrpos($arr['poster'], "ad.doubleclick") === false) { //Get large and small posters
-            $arr['poster'] = substr($arr['poster'], 0, strrpos($arr['poster'], "_V1.")) . "_V1._SY500.jpg";
+        $arr['poster'] = trim($this->match('/img_primary">.*?src="(.*?)"\n.*?<\/td>/ms', $html, 1));
+
+        if ($arr['poster'] != '') { //Get large and small posters
+            $arr['poster'] = str_replace("_SY317_CR0,0,214,317_", "", $arr['poster']);
         } else {
             $arr['poster'] = "";
         }
+        
+        /*if ($arr['poster'] != '' && strrpos($arr['poster'], "nopicture") === false && strrpos($arr['poster'], "ad.doubleclick") === false) { //Get large and small posters
+            $arr['poster'] = substr($arr['poster'], 0, strrpos($arr['poster'], "_V1.")) . "_V1.jpg";
+        } else {
+            $arr['poster'] = "";
+        }*/
 		
         $arr['runtime'] = trim($this->match('/Runtime:<\/h4>.*?(\d+) min.*?<\/div>/ms', $html, 1));
         if($arr['runtime'] == '') $arr['runtime'] = trim($this->match('/infobar.*?(\d+) min.*?<\/div>/ms', $html, 1));
@@ -150,11 +180,11 @@ class Isy_IMDB
 		
         $arr['storyline'] = trim(strip_tags($this->match('/Storyline<\/h2>(.*?)(<em|<\/p>|<span)/ms', $html, 1)));
         //$arr['tagline'] = trim(strip_tags($this->match('/Tagline.?:<\/h4>(.*?)(<span|<\/div)/ms', $html, 1)));
-        $arr['votes'] = str_replace(",", "", $this->match('/href="ratings".*?><span itemprop="ratingCount">(\d+,?\d*)<\/span> users<\/a>/ms', $html, 1));
+        $arr['votes'] = str_replace(",", "", $this->match('/href="ratings.*?> <span itemprop="ratingCount">(\d+,?\d*)<\/span> users\n<\/a>/ms', $html, 1));
 		
-		$arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+)<\/span> user<\/a>/ms', $html, 1)));
-		$arr['mcrating'] = str_replace(",", "", trim($this->match('/href="criticreviews">(\d+)\/100<\/a>/ms', $html, 1)));
-		$arr['mcreviewedusers'] = str_replace(",", "", trim($this->match('/>(\d+)<\/a> from <a/ms', $html, 1)));
+		$arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+,?\d*) user<\/span>/ms', $html, 1)));
+		$arr['mcrating'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\/100/ms', $html, 1)));
+		$arr['mcreviewedusers'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\n<\/a>                from/ms', $html, 1)));
         
 		$arr['language'] = array();
         foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/Language.?:(.*?)(<\/div>|>.?and )/ms', $html, 1), 1) as $m)
@@ -170,10 +200,12 @@ class Isy_IMDB
 		
         $arr['budget'] = str_replace(",", "", trim($this->match('/Budget:<\/h4>.*?(\d+,?\d+,\d*)(.*?)<\/div>/ms', $html, 1)));
 		$arr['gross'] = str_replace(",", "", trim($this->match('/Gross:<\/h4>.*?(\d+,?\d+,\d*)(.*?)<\/div>/ms', $html, 1)));
-		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n<a href="(.*?)">.*?<\/a>/ms', $html, 1));
+
+        // <a rel="nofollow" href="https://www.facebook.com/FastandFurious?fref=ts" itemprop='url'>Official Facebook</a>
+		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n        <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
 		
         $arr['production_co'] = array();
-        foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/Production Co:(.*?)(<span|<\/span>|.?and )/ms', $html, 1), 1) as $p)
+        foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/Production Co:<\/h4>(.*?)(<span|<\/span>|.?and )/ms', $html, 1), 1) as $p)
 			array_push($arr['production_co'], trim($p));
 
         return $arr;
@@ -314,7 +346,7 @@ class Isy_IMDB
         $pics = array();
         foreach($this->match_all('/src="(.*?)"/ms', $this->match('/<div class="thumb_list" style="font-size: 0px;">(.*?)<\/div>/ms', $html, 1), 1) as $i)
         {
-            $i = substr($i, 0, strrpos($i, "_V1.")) . "_V1._SY500.jpg";
+            $i = substr($i, 0, strrpos($i, "_V1.")) . "_V1.jpg";
             array_push($pics, $i);
         }
         return $pics;
@@ -362,7 +394,7 @@ class Isy_IMDB
         foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/<div class="infobar">(.*?)<\/div>/ms', $phtml, 1), 1) as $pg)
             array_push($parr['p_genres'], trim($pg));
 		
-		$parr['p_website'] = trim($this->match('/Official Sites:<\/h4>\n<a href="(.*?)">.*?<\/a>/ms', $phtml, 1));
+		$parr['p_website'] = trim($this->match('/Official Sites:<\/h4>\n<a href="(.*?)" rel="nofollow">.*?<\/a>/ms', $phtml, 1));
 		
 		if ( preg_match('/<div class="article highlighted" >(.*?)<span class="see-more inline">.*<\/div>/ms',$phtml,$match) ) {
 			
@@ -384,41 +416,31 @@ class Isy_IMDB
 		}*/
 		
 		if ( preg_match('|Date of Birth</h5>\s*(.*)<br|iUms',$pbiohtml,$match) ) {
-		
-			preg_match('|/date/(\d+)-(\d+)/.*?>\d+\s+(.*?)<|',$match[1],$daymon);
+
+			preg_match('|/search/name\?birth_monthday=(\d{2}-\d{2})|ims',$match[1],$daymon);
 			preg_match('|/search/name\?birth_year=(\d{4})|ims',$match[1],$dyear);
 			preg_match('|/search/name\?birth_place=.*?">(.*)<|ims',$match[1],$dloc);
 			
-			if(isset($dyear[1]) && isset($daymon[2]) && isset($daymon[3]) && $dyear[1] != '' && $daymon[2] != '' && $daymon[3] != '') {
-				$parr['p_birthdate'] = strtotime($daymon[2]." ".$daymon[3]." ".$dyear[1]);
-			} elseif(isset($dyear[1]) && isset($daymon[3]) && empty($daymon[2]) && $dyear[1] != '' && $daymon[3] != '' && $daymon[2] == '') {
-				$parr['p_birthdate'] = strtotime($daymon[3]." ".$dyear[1]);
-			} elseif(isset($dyear[1]) && empty($daymon[3]) && empty($daymon[2]) && $dyear[1] != '' && $daymon[2] == '' && $daymon[3] == '') {
-				$parr['p_birthdate'] = strtotime($dyear[1]);
-			} elseif(empty($dyear[1]) && empty($daymon[3]) && empty($daymon[2]) && $dyear[1] == '' && $daymon[2] == '' && $daymon[3] == '') {
-				$parr['p_birthdate'] = '';
-			}
+			$bdaymonth = (isset($daymon[1]) && trim($daymon[1]) != '') ? '-'.trim($daymon[1]) : '';
+			$bdayyear = (isset($dyear[1]) && trim($dyear[1]) != '') ? trim($dyear[1]) : '';
+
+			$parr['p_birthdate'] = strtotime($bdayyear.$bdaymonth);
 
 			$parr['p_birthplace'] = (isset($dloc[1]) && trim($dloc[1]) != '') ? trim($dloc[1]) : '';
 		
 		}
 		
 		if (preg_match('|Date of Death</h5>(.*)<br|iUms',$pbiohtml,$match)) {
-		
-			preg_match('|/date/(\d+)-(\d+)/.*?>\d+\s+(.*?)<|',$match[1],$ddaymon);
+
+			preg_match('|/search/name\?death_monthday=(\d{2}-\d{2})|ims',$match[1],$ddaymon);
 			preg_match('|/search/name\?death_date=(\d{4})|ims',$match[1],$ddyear);
 			preg_match('/(\,\s*([^\(]+))/ims',$match[1],$ddloc);
 			preg_match('/\(([^\)]+)\)/ims',$match[1],$ddcause);
-			
-			if(isset($ddyear[1]) && isset($ddaymon[3]) && isset($ddaymon[2]) && $ddyear[1] != '' && $ddaymon[2] != '' && $ddaymon[3] != '') {
-				$parr['p_deathdate'] = strtotime($ddaymon[2]." ".$ddaymon[3]." ".$ddyear[1]);
-			} elseif(isset($ddyear[1]) && isset($ddaymon[3]) && empty($ddaymon[2]) && $ddyear[1] != '' && $ddaymon[3] != '' && $ddaymon[2] == '') {
-				$parr['p_deathdate'] = strtotime($ddaymon[3]." ".$ddyear[1]);
-			} elseif(isset($ddyear[1]) && empty($ddaymon[3]) && empty($ddaymon[2]) && $ddyear[1] != '' && $ddaymon[2] == '' && $ddaymon[3] == '') {
-				$parr['p_deathdate'] = strtotime($ddyear[1]);
-			} elseif(empty($ddyear[1]) && empty($ddaymon[3]) && empty($ddaymon[2]) && $ddyear[1] == '' && $ddaymon[2] == '' && $ddaymon[3] == '') {
-				$parr['p_deathdate'] = '';
-			}
+
+			$daymonth = (isset($ddaymon[1]) && trim($ddaymon[1]) != '') ? '-'.trim($ddaymon[1]) : '';
+			$dayyear = (isset($ddyear[1]) && trim($ddyear[1]) != '') ? trim($ddyear[1]) : '';
+
+			$parr['p_deathdate'] = strtotime($dayyear.$daymonth);
 
 			$parr['p_deathplace'] = (isset($ddloc[2]) && trim($ddloc[2]) != '') ? trim($ddloc[2]) : '';
 			$parr['p_deathreason'] = (isset($ddcause[1]) && trim($ddcause[1]) != '') ? trim($ddcause[1]) : '';
