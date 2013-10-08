@@ -1,7 +1,7 @@
 <?php
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHP IMDB Scraper API by Islander 
-// Version: 4.0
+// Version: 4.2
 // UPDATED imdb regexp's 09th Oct 2013
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 require_once(__DIR__.DIRECTORY_SEPARATOR.'countryarray.php');
@@ -366,7 +366,7 @@ class Isy_IMDB
 		
         $phtml = $this->getURL($pUrl);
 		
-        if(stripos($phtml, "<meta name=\"application-name\" content=\"IMDb\" />") !== false){
+        if(stripos($phtml, "<meta property='og:site_name' content='IMDb' />") !== false){
             $parr = $this->ScrapPersonInfo($phtml, $pId);
             $parr['p_id'] = trim($pId);
 			$parr['p_url'] = $pUrl;
@@ -381,21 +381,15 @@ class Isy_IMDB
 	private function ScrapPersonInfo($phtml, $pId) {
 	
 		$parr = array();
-
-        $parr['p_name'] = trim($this->match('/<h1 class="header" itemprop="name">(.*?)\n(<span|<\/h1>)/ms', $phtml, 1));
-		$parr['p_photo'] = trim($this->match('!<td id="img_primary".*?>\s*.*?<img.*?src="(.*?)"!ims',$phtml,1));
 		
-		if ($parr['p_photo'] != '' && strrpos($parr['p_photo'], "nopicture") === false && strrpos($parr['p_photo'], "ad.doubleclick") === false) {
-            $parr['p_photo'] = $parr['p_photo'];
-        } else {
-            $parr['p_photo'] = '';
-        }
+        $parr['p_name'] = trim($this->match('/<h1 class="header"> <span class="itemprop" itemprop="name">(.*?)<\/span>/ms', $phtml, 1));
+		$parr['p_photo'] = trim($this->match('/<img id="name-poster"\nheight="317"\nwidth="214"\nalt=".*?"\ntitle=".*?"\nsrc="(.*?)"\nitemprop="image" \/>/ms',$phtml,1));
 		
 		$parr['p_genres'] = array();
-        foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/<div class="infobar">(.*?)<\/div>/ms', $phtml, 1), 1) as $pg)
+        foreach($this->match_all('/<a.*?> <span class="itemprop" itemprop="jobTitle">\n(.*?)<\/span><\/a>/ms', $this->match('/<div class="infobar" id="name-job-categories">(.*?)<\/div>/ms', $phtml, 1), 1) as $pg)
             array_push($parr['p_genres'], trim($pg));
 		
-		$parr['p_website'] = trim($this->match('/Official Sites:<\/h4>\n<a href="(.*?)" rel="nofollow">.*?<\/a>/ms', $phtml, 1));
+		$parr['p_website'] = trim($this->match('/Official Sites:<\/h4>\n                \n                <a href="(.*?)" >.*?<\/a>/ms', $phtml, 1));
 		
 		if ( preg_match('/<div class="article highlighted" >(.*?)<span class="see-more inline">.*<\/div>/ms',$phtml,$match) ) {
 			
