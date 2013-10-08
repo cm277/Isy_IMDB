@@ -1,8 +1,8 @@
 <?php
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHP IMDB Scraper API by Islander 
-// Version: 3.2
-// UPDATED imdb regexp's 21st Feb 2013
+// Version: 4.0
+// UPDATED imdb regexp's 09th Oct 2013
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 require_once(__DIR__.DIRECTORY_SEPARATOR.'countryarray.php');
 
@@ -108,7 +108,7 @@ class Isy_IMDB
         $arr['reviewedusers'] = str_replace(",", "", trim($this->match('/span itemprop="reviewCount">(\d+,?\d*) user<\/span>/ms', $html, 1)));
 		$arr['mcrating'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\/100/ms', $html, 1)));
 		$arr['mcreviewedusers'] = str_replace(",", "", trim($this->match('/href="criticreviews.*?" > (\d+)\n<\/a>                from/ms', $html, 1)));
-		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n        <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
+		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n\n\n    <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
 
         return $arr;
 		
@@ -202,7 +202,7 @@ class Isy_IMDB
 		$arr['gross'] = str_replace(",", "", trim($this->match('/Gross:<\/h4>.*?(\d+,?\d+,\d*)(.*?)<\/div>/ms', $html, 1)));
 
         // <a rel="nofollow" href="https://www.facebook.com/FastandFurious?fref=ts" itemprop='url'>Official Facebook</a>
-		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n        <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
+		$arr['website'] = trim($this->match('/Official Sites:<\/h4>\n\n\n    <a rel="nofollow" href="(.*?)" itemprop=\'url\'>.*?<\/a>/ms', $html, 1));
 		
         $arr['production_co'] = array();
         foreach($this->match_all('/<a.*?>(.*?)<\/a>/ms', $this->match('/Production Co:<\/h4>(.*?)(<span|<\/span>|.?and )/ms', $html, 1), 1) as $p)
@@ -218,32 +218,34 @@ class Isy_IMDB
 		$url  = "http://akas.imdb.com/title/" . $titleId . "/fullcredits";
 		$html = $this->getURL($url);
 		$full_credits = array();
-		
+
 		$full_credits['full_directors'] = array();
-        foreach($this->extra_match_all('/<td valign="top"><a href="\/name\/nm+([\d]{7})\/">(.*?)<\/a><\/td><td valign="top">.*?<\/td><td valign="top">(.*?)<\/td>/ms', $this->match('/Directed by<\/a><\/h5>.*?<\/td><\/tr>(.*?)<\/table>/ms', $html, 1)) as $fwdr)
+        foreach($this->extra_match_all('/<td class="name">\n<a href="\/name\/nm+([\d]{7})\/.*?" > (.*?)\n<\/a>        <\/td>\n         (.*?)<td colspan="2"><\/td>/ms', $this->match('/Directed by&nbsp;<\/h4>\n    <table .*?<tbody>.*?<tr>\n        (.*?)<\/tr>        \n    <\/tbody>\n    <\/table>/ms', $html, 1)) as $fwdr)
         {
             array_push($full_credits['full_directors'], $fwdr);
         }
 		
 		$full_credits['full_directors'] = $this->make_multidimension_array($full_credits['full_directors'][0],$full_credits['full_directors'][1],$full_credits['full_directors'][2]);
-		
+
 		$full_credits['full_writers'] = array();
-        foreach($this->extra_match_all('/<td valign="top"><a href="\/name\/nm+([\d]{7})\/">(.*?)<\/a><\/td><td.*?valign="top">(.*?)(<br><br>)?<\/td>/ms', $this->match('/Writing credits<\/a><\/h5>.*?<\/td><\/tr>(.*?)<\/table>/ms', $html, 1)) as $fw)
+        foreach($this->extra_match_all('/<tr>\n        <td class="name">\n<a href="\/name\/nm+([\d]{7})\/.*?" > (.*?)\n<\/a>        <\/td>\n          <td>...<\/td>\n          <td class="credit">\n            (.*?)\n          <\/td>\n      <\/tr>/ms', $this->match('/Writing Credits.*?<\/h4>\n    <table .*?<tbody>\n      (.*?)  \n    <\/tbody>\n    <\/table>/ms', $html, 1)) as $fw)
         {
             array_push($full_credits['full_writers'], $fw);
         }
 		
 		$full_credits['full_writers'] = $this->make_multidimension_array($full_credits['full_writers'][0],$full_credits['full_writers'][1],$full_credits['full_writers'][2]);
 		
+		$cast_regexp = '/<tr class=".*?">\n          <td class="primary_photo">\n<a href="\/name\/nm+([\d]{7})\/.*?" ><img height="44" width="32" alt=".*?" title=".*?"src=".*?"class="loadlate hidden " loadlate=".*?" \/><\/a>          <\/td>\n          <td class="itemprop" itemprop="actor" itemscope itemtype=".*?">\n<a href="\/name\/.*?" itemprop=\'url\'> <span class="itemprop" itemprop="name">(.*?)<\/span>\n<\/a>          <\/td>\n          <td class="ellipsis">\n              ...\n          <\/td>\n          <td class="character">\n              <div>\n            (.*?) \n.*?<\/div>\n          <\/td>\n      <\/tr>/ms';
+		
 		$full_credits['full_cast'] = array();
-		foreach($this->extra_match_all('/<td class="nm"><a href="\/name\/nm+([\d]{7})\/" onclick.*?>(.*?)<\/a><\/td><td class="ddd">.*?<\/td><td class="char">(<a href="\/character\/ch+([\d]{7})\/">)?(.*?)(<\/a>)?<\/td>/ms', $this->match('/<table class="cast">(.*?)<\/table>/ms', $html, 1), true) as $fxx)
+		foreach($this->extra_match_all($cast_regexp, $this->match('/<h4 name="cast" id="cast" class="dataHeaderWithBorder">\n      Cast.*?<\/h4>\n    <table class="cast_list">    \n  <tr><td colspan="4" class="castlist_label"><\/td><\/tr>\n      (.*?)\n    <\/table>\n      <div class="full_cast form-box">/ms', $html, 1), true) as $fxx)
 		{
 			array_push($full_credits['full_cast'], $fxx);
 		}
 		
 		$full_credits['full_cast'] = $this->make_multidimension_array($full_credits['full_cast'][0],$full_credits['full_cast'][1],$full_credits['full_cast'][2]);
 		
-		$full_credits['original_music'] = array();
+		/*$full_credits['original_music'] = array();
         foreach($this->extra_match_all('/<td valign="top"><a href="\/name\/nm+([\d]{7})\/">(.*?)<\/a><\/td><td valign="top">.*?<\/td><td valign="top">(.*?)<\/td>/ms', $this->match('/Original Music by<\/a><\/h5><\/td><\/tr>(.*?)<\/table>/ms', $html, 1)) as $om)
         {
             array_push($full_credits['original_music'], $om);
@@ -251,7 +253,6 @@ class Isy_IMDB
 		
 		$full_credits['original_music'] = $this->make_multidimension_array($full_credits['original_music'][0],$full_credits['original_music'][1],$full_credits['original_music'][2]);
 		
-		/*
 		$full_credits['cinematography'] = array();
         foreach($this->extra_match_all('/<td valign="top"><a href="\/name\/nm+([\d]{7})\/">(.*?)<\/a><\/td><td valign="top">.*?<\/td><td valign="top">(.*?)<\/td>/ms', $this->match('/Cinematography by<\/a><\/h5><\/td><\/tr>(.*?)<\/table>/ms', $html, 1)) as $c)
         {
@@ -519,7 +520,7 @@ class Isy_IMDB
 	}
  
     private function extra_match_all($regex, $str, $trmme=false) {
-	
+
         if(preg_match_all($regex, $str, $matches) === false) {
 		
             return false;
@@ -528,16 +529,17 @@ class Isy_IMDB
             
 			if ($trmme) {
 			
-				$mm = str_replace("</a>", "", $matches[5]);
-				$mn = preg_replace( '/(<a href="\/character\/ch+([\d]{7})\/">)/ms', '', $mm);
+				$mo = str_replace("</a>", "", $matches[3]);
+				$mm = preg_replace( '/<a href="\/character\/ch+([\d]{7})\/.*?" >/ms', '', $mo);
+				$mn = str_replace("/", "", $mm);
 				
 			} else {
 			
 				$mn = $matches[3];
 				
 			}
-			
-			return array('nid'=>$matches[1],'name'=>$matches[2],'as'=>$mn);
+
+			return array('nid' => $matches[1], 'name' => $matches[2], 'as' => $mn);
 			
 		}
     }
