@@ -238,7 +238,7 @@ class Isy_IMDB
 		$cast_regexp = '/<tr class=".*?">\n          <td class="primary_photo">\n<a href="\/name\/nm+([\d]{7})\/.*?" ><img height="44" width="32" alt=".*?" title=".*?"src=".*?"class="loadlate hidden " loadlate=".*?" \/><\/a>          <\/td>\n          <td class="itemprop" itemprop="actor" itemscope itemtype=".*?">\n<a href="\/name\/.*?" itemprop=\'url\'> <span class="itemprop" itemprop="name">(.*?)<\/span>\n<\/a>          <\/td>\n          <td class="ellipsis">\n              ...\n          <\/td>\n          <td class="character">\n              <div>\n            (.*?) \n.*?<\/div>\n          <\/td>\n      <\/tr>/ms';
 		
 		$full_credits['full_cast'] = array();
-		foreach($this->extra_match_all($cast_regexp, $this->match('/<h4 name="cast" id="cast" class="dataHeaderWithBorder">\n      Cast.*?<\/h4>\n    <table class="cast_list">    \n  <tr><td colspan="4" class="castlist_label"><\/td><\/tr>\n      (.*?)\n    <\/table>\n      <div class="full_cast form-box">/ms', $html, 1), true) as $fxx)
+		foreach($this->extra_match_all($cast_regexp, $this->match('/<h4 name="cast" id="cast" class="dataHeaderWithBorder">\n        \n      Cast.*?<\/h4>\n    <table class="cast_list">    \n  <tr><td colspan="4" class="castlist_label"><\/td><\/tr>\n      (.*?)\n    <\/table>\n      <div class="full_cast form-box">/ms', $html, 1), true) as $fxx)
 		{
 			array_push($full_credits['full_cast'], $fxx);
 		}
