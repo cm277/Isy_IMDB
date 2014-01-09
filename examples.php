@@ -11,6 +11,8 @@ $mIP = $imdb->getPersonInfo("nm0000881");
 //$mIP1 = $imdb->getPersonInfo("nm0001006");
 //$mIP2 = $imdb->getPersonInfo("nm0005024");
 
+$movie2 = $imdb->getMovieInfo("tt2717558");
+$cast2 = $imdb->getFullCredits('tt2717558');
 
 ?><pre><?php
 
@@ -22,5 +24,8 @@ print_r($mCAST);
 print_r($mIP);
 //print_r($mIP1);
 //print_r($mIP2);
+
+print_r($movie2);
+print_r($cast2);
 
 ?></pre>

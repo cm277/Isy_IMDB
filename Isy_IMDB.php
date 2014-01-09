@@ -1,8 +1,9 @@
 <?php
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PHP IMDB Scraper API by Islander 
-// Version: 4.2
-// UPDATED imdb regexp's 09th Oct 2013
+// Version: 4.8
+// UPDATED imdb regexp's 09th Jan 2014
+// ONLINE TESTING: http://regex101.com/
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 require_once(__DIR__.DIRECTORY_SEPARATOR.'countryarray.php');
 
@@ -228,19 +229,31 @@ class Isy_IMDB
 		$full_credits['full_directors'] = $this->make_multidimension_array($full_credits['full_directors'][0],$full_credits['full_directors'][1],$full_credits['full_directors'][2]);
 
 		$full_credits['full_writers'] = array();
-        foreach($this->extra_match_all('/<tr>\n        <td class="name">\n<a href="\/name\/nm+([\d]{7})\/.*?" > (.*?)\n<\/a>        <\/td>\n          <td>...<\/td>\n          <td class="credit">\n            (.*?)\n          <\/td>\n      <\/tr>/ms', $this->match('/Writing Credits.*?<\/h4>\n    <table .*?<tbody>\n      (.*?)  \n    <\/tbody>\n    <\/table>/ms', $html, 1)) as $fw)
-        {
-            array_push($full_credits['full_writers'], $fw);
-        }
+		
+		$WriterCreditsList = $this->match('/Writing Credits.*?<\/h4>\n    <table .*?<tbody>\n      (.*?)  \n    <\/tbody>\n    <\/table>/ms', $html, 1);
+
+		foreach($this->extra_match_all('/<td class="name">\n<a href="\/name\/nm+([\d]{7})\/.*?" > (.*?)\n<\/a>        <\/td>\n(.*?)          <td colspan="2"><\/td>/ms', $WriterCreditsList) as $fw)
+		{
+			if(count($fw)) array_push($full_credits['full_writers'], $fw);
+		}
+		
+		if(count($full_credits['full_writers']) == 0)
+		{
+			foreach($this->extra_match_all('/<tr>\n        <td class="name">\n<a href="\/name\/nm+([\d]{7})\/.*?" > (.*?)\n<\/a>        <\/td>\n          <td>...<\/td>\n          <td class="credit">\n            (.*?)\n          <\/td>\n      <\/tr>/ms', $WriterCreditsList) as $fw)
+			{
+				if(count($fw)) array_push($full_credits['full_writers'], $fw);
+			}
+		}
 		
 		$full_credits['full_writers'] = $this->make_multidimension_array($full_credits['full_writers'][0],$full_credits['full_writers'][1],$full_credits['full_writers'][2]);
 		
-		$cast_regexp = '/<tr class=".*?">\n          <td class="primary_photo">\n<a href="\/name\/nm+([\d]{7})\/.*?" ><img height="44" width="32" alt=".*?" title=".*?"src=".*?"class="loadlate hidden " loadlate=".*?" \/><\/a>          <\/td>\n          <td class="itemprop" itemprop="actor" itemscope itemtype=".*?">\n<a href="\/name\/.*?" itemprop=\'url\'> <span class="itemprop" itemprop="name">(.*?)<\/span>\n<\/a>          <\/td>\n          <td class="ellipsis">\n              ...\n          <\/td>\n          <td class="character">\n              <div>\n            (.*?) \n.*?<\/div>\n          <\/td>\n      <\/tr>/ms';
-		
 		$full_credits['full_cast'] = array();
-		foreach($this->extra_match_all($cast_regexp, $this->match('/<h4 name="cast" id="cast" class="dataHeaderWithBorder">\n        \n      Cast.*?<\/h4>\n    <table class="cast_list">    \n  <tr><td colspan="4" class="castlist_label"><\/td><\/tr>\n      (.*?)\n    <\/table>\n      <div class="full_cast form-box">/ms', $html, 1), true) as $fxx)
+		
+		$CastCreditsList = $this->match('/<h4 name="cast" id="cast" class="dataHeaderWithBorder">\n        \n      Cast.*?<\/h4>\n    <table class="cast_list">    \n  <tr><td colspan="4" class="castlist_label"><\/td><\/tr>\n      (.*?)\n    <\/table>\n      <div class="full_cast form-box">/ms', $html, 1);
+
+		foreach($this->extra_match_all('/<tr class=".*?">\s*<td class="primary_photo">\s*<a href="\/name\/nm+([\d]{7})\/.*?" ><img height="44" width="32" alt=".*?" title=".*?"src=".*?".*?\/><\/a>\s*<\/td>\s*<td class="itemprop" itemprop="actor" itemscope itemtype=".*?">\s*<a href="\/name\/.*?" itemprop=\'url\'>\s*<span class="itemprop" itemprop="name">(.*?)<\/span>\s*<\/a>\s*<\/td>\s*<td class="ellipsis">\s*...\s*<\/td>\s*<td class="character">\s*<div>\s*(.*?) \s.*?<\/div>\s*<\/td>\s*<\/tr>/ms', $CastCreditsList, true) as $fxx)
 		{
-			array_push($full_credits['full_cast'], $fxx);
+			if(count($fxx)) array_push($full_credits['full_cast'], $fxx);
 		}
 		
 		$full_credits['full_cast'] = $this->make_multidimension_array($full_credits['full_cast'][0],$full_credits['full_cast'][1],$full_credits['full_cast'][2]);
